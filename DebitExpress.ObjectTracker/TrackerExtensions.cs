@@ -1,8 +1,10 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace DebitExpress.ObjectTracker
 {
@@ -40,7 +42,7 @@ namespace DebitExpress.ObjectTracker
             if (JToken.DeepEquals(current, model)) return diff;
 
             if (current.Type != JTokenType.Object) return diff;
-            
+
             var currentJObj = current as JObject;
             var modelJObj = model as JObject;
             var addedKeys = GetAddedKeys(currentJObj, modelJObj);
@@ -60,7 +62,7 @@ namespace DebitExpress.ObjectTracker
             var addedKeys = current?.Properties()
                 .Select(c => c.Name)
                 .Except(model?.Properties()
-                            .Select(c => c.Name) ?? throw new ArgumentNullException(nameof(model)))
+                    .Select(c => c.Name) ?? throw new ArgumentNullException(nameof(model)))
                 .ToList();
             return addedKeys;
         }
@@ -70,7 +72,7 @@ namespace DebitExpress.ObjectTracker
             var removedKeys = model?.Properties()
                 .Select(c => c.Name)
                 .Except(current?.Properties()
-                            .Select(c => c.Name) ?? throw new ArgumentNullException(nameof(current)))
+                    .Select(c => c.Name) ?? throw new ArgumentNullException(nameof(current)))
                 .ToList();
             return removedKeys;
         }
@@ -114,6 +116,29 @@ namespace DebitExpress.ObjectTracker
         {
             var str = JsonSerializer.Serialize(obj);
             return JsonSerializer.Deserialize<T>(str);
+        }
+
+        /// <summary>
+        /// Create a full copy of an object using Json asynchronously.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static async Task<T> CopyAsync<T>(this T obj) where T : new()
+        {
+            var str = await SerializeAsync(obj);
+
+            return JsonSerializer.Deserialize<T>(str);
+        }
+
+        private static async Task<string> SerializeAsync<T>(T obj)
+        {
+            await using var stream = new MemoryStream();
+            await JsonSerializer.SerializeAsync(stream, obj).ConfigureAwait(false);
+            stream.Position = 0;
+            using var reader = new StreamReader(stream);
+
+            return await reader.ReadToEndAsync();
         }
     }
 }
